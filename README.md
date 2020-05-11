@@ -1,4 +1,4 @@
-# `cards`
+# `cards.js`
 
 A Javascript library for creating card games.
 
