@@ -183,6 +183,9 @@ function play_target(game, card_being_played, target_pile, target_card) {
  *      the same suit as the top card of that pile.
  */
 function play_onto_pile(game, card, pile) {
+    // Remember old pile
+    let prev_pile = card.pile;
+
     // Check which kind of pile we're trying to play onto:
     if (game.pile_is_in_group(pile, "numbered")) {
         // Move card + those stacked on it into the target pile
@@ -193,6 +196,11 @@ function play_onto_pile(game, card, pile) {
     } else {
         // shouldn't be possible
         throw Error("Invalid pile target '" + pile + "'.");
+    }
+
+    // Flip top card of previous pile if it was a numbered pile
+    if (game.pile_is_in_group(prev_pile, "numbered")) {
+        game.flip_card(game.top_card_of_pile(prev_pile));
     }
 }
 
