@@ -1,0 +1,172 @@
+.card_face {
+    position: absolute;
+    top: 0pt;
+    left: 0pt;
+    height: 100%;
+    width: 100%;
+}
+
+.red {
+    color: red;
+}
+
+.black {
+    color: black;
+}
+
+.purple {
+    color: purple;
+}
+
+.corner {
+    position: absolute;
+    width: 24%; /* Overflow is allowed so this doesn't really matter */
+    text-align: left;
+    font-size: 12%;
+    line-height: 95%;
+}
+/* TOOD: Prioritize corners when card sizes get too small! */
+
+.corner:first-child {
+    top: 3%;
+    left: 3%;
+}
+
+.corner:last-child {
+    bottom: 3%;
+    right: 3%;
+    transform: rotate(180deg); /* flip upside-down */
+}
+
+.corner > * {
+    display: block;
+}
+
+.suit_symbol {
+    font-size: 120%;
+}
+
+.face_symbols {
+    padding: 20% 20% 20% 20%;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    font-size: 20%;
+    justify-items: center;
+}
+
+.face_symbols .face_symbol:nth-child(1) {
+    grid-area: a;
+}
+
+.face_symbols .face_symbol:nth-child(2) {
+    grid-area: b;
+}
+
+.face_symbols .face_symbol:nth-child(3) {
+    grid-area: c;
+}
+
+.face_symbols .face_symbol:nth-child(4) {
+    grid-area: d;
+}
+
+.face_symbols .face_symbol:nth-child(5) {
+    grid-area: e;
+}
+
+.face_symbols .face_symbol:nth-child(6) {
+    grid-area: f;
+}
+
+.face_symbols .face_symbol:nth-child(7) {
+    grid-area: g;
+}
+
+.face_symbols .face_symbol:nth-child(8) {
+    grid-area: h;
+}
+
+.face_symbols .face_symbol:nth-child(9) {
+    grid-area: i;
+}
+
+.face_symbols .face_symbol:nth-child(10) {
+    grid-area: j;
+}
+
+.face_symbols.special {
+    grid-template-areas: "a";
+    font-size: 40%;
+}
+
+.face_symbols.special .face_symbol {
+    align-self: center;
+}
+
+
+.face_symbols.count_2 {
+    grid-template-areas:
+      " . a ."
+      " . . ."
+      " . b .";
+}
+
+.face_symbols.count_3 {
+    grid-template-areas:
+      " . a ."
+      " . b ."
+      " . c .";
+}
+
+.face_symbols.count_4 {
+    grid-template-areas:
+      " a . b"
+      " . . ."
+      " c . d";
+}
+
+.face_symbols.count_5 {
+    grid-template-areas:
+      " a . b"
+      " . c ."
+      " d . e";
+}
+
+.face_symbols.count_6 {
+    grid-template-areas:
+      " a . b"
+      " c . d"
+      " e . f";
+}
+
+.face_symbols.count_7 {
+    grid-template-areas:
+      " a . b"
+      " c d e"
+      " f . g";
+}
+
+.face_symbols.count_8 {
+    grid-template-areas:
+      " a b c"
+      " d . e"
+      " f g h";
+}
+
+.face_symbols.count_9 {
+    grid-template-areas:
+      " a b c"
+      " d e f"
+      " g h i";
+}
+
+.face_symbols.count_10 {
+    font-size: 16%; /* symbols have to shrink a bit */
+    grid-template-areas:
+      " a . b"
+      " c d e"
+      " f g h"
+      " i . j";
+}

@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Solitaire (cards.js test)</title>
+        <!-- stylesheets (general + cards-specific) -->
+        <link rel="stylesheet" href="cards.css">
+        <link rel="stylesheet" href="playing_cards.css">
+        <link rel="stylesheet" href="solitaire.css">
+
+<!-- extra styles -->
+<style>
+#play_area {
+    position: relative;
+    width: 95vw;
+    height: 80vh;
+    overflow: scroll;
+}
+</style>
+
+<!-- Game setup script -->
+<script defer type="module">
+// Imports solitaire module, hooks it up to the DOM, and starts the game.
+
+import * as solitaire from "./solitaire.js";
+
+let play_area = document.getElementById("play_area");
+let reset_button = document.getElementById("reset");
+
+let game = solitaire.new_game(play_area);
+
+// Hook up the reset button to reset the game
+reset_button.addEventListener("click", game.reset);
+
+// Start the game!
+game.start();
+
+</script>
+
+    </head>
+    <body>
+        <h1>Solitaire</h1>
+        <input type="button" id="reset" value="Start Over">
+        <div id="play_area">
+        </div>
+    </body>
+</html>
