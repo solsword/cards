@@ -217,8 +217,9 @@ var SETTINGS_KEYS = [
  *       may return true or false to indicate playability, or it may
  *       return a pre-pickup function that indicates that the card is
  *       playable, but before being picked up that function should be
- *       run. This can be used for example to stack cards when a card is
- *       picked up.
+ *       run. The pre-pickup function will be given a game object and a
+ *       card object as arguments. This can be used for example to stack
+ *       cards when a card is picked up.
  *   play_target - A function to determine valid targets for playing a
  *       card that the player is holding. It will be given four
  *       arguments: a game object, the card the player is holding, the
@@ -274,14 +275,20 @@ var SETTINGS_KEYS = [
  *       object.
  */
 export function Game(library, rules, play_area) {
+    // configuration variables
     this.library = library;
     this.rules = rules;
     this.play_area = play_area;
     this.play_area.classList.add("play_area");
 
+    // entity variables
     this.existing_cards = [];
     this.piles = {};
     this.pile_groups = {};
+
+    // UI variables
+    this.drag_handlers = create_drag_handlers(this);
+    this.grabbed = null;
 
     for (let pile_id of this.rules.piles) {
         this.create_pile(pile_id);
@@ -392,10 +399,33 @@ Game.prototype.create_pile = function (pile_id) {
     // Add it to the play area
     this.play_area.appendChild(element);
 
+    // Add inner divs for cards and controls
+    let cards = document.createElement("div");
+    cards.classList.add("pilecards");
+    element.appendChild(cards);
+
+    let controls = document.createElement("details");
+    controls.classList.add("controls");
+    element.appendChild(controls);
+
+    let controls_button = document.createElement("summary");
+    controls_button.innerHTML = "☰";
+    controls.appendChild(controls_button);
+
+    // Default controls
+    let inspect = document.createElement("a");
+    inspect.setAttribute("href", "#inspect:" + pile_id);
+    inspect.setAttribute("title", "Inspect pile");
+    inspect.innerHTML = "🔍";
+    inspect.addEventListener("click", function () { inspect_pile(pile_id); });
+
+    controls.appendChild(inspect);
+
     // Add an entry in the piles map for the new pile
     this.piles[pile_id] = {
         "id": pile_id,
         "element": element,
+        "cards_element": cards,
         "items": [],
         "display": styles.stacked,
         "actions": [],
@@ -404,13 +434,14 @@ Game.prototype.create_pile = function (pile_id) {
 
 /**
  * Deletes a pile. Any cards in that pile will be rendered pile-less.
+ * This does not alter the stack situation of affected cards.
  *
  * @param pile_id The ID of the pile to be deleted.
  */
 Game.prototype.delete_pile = function (pile_id) {
     // Remove all cards in this pile first
     for (let card of this.piles[pile_id].items) {
-        this.remove_card_from_pile(card);
+        this._remove_card_from_pile(card);
     }
 
     // Remove the pile element from the DOM
@@ -541,23 +572,40 @@ Game.prototype.create_card = function (card_type_id, face_up_or_false) {
     element.appendChild(back);
     element.appendChild(front);
 
-    // Return a new card
-    return {
+    // Add drag handlers to card
+    element.setAttribute("draggable", "true");
+    element.addEventListener("dragstart", this.drag_handlers[0]);
+    element.addEventListener("dragend", this.drag_handlers[1]);
+    element.addEventListener("dragenter", this.drag_handlers[2]);
+    element.addEventListener("dragleave", this.drag_handlers[3]);
+    element.addEventListener("drag", this.drag_handlers[4]);
+    element.addEventListener("dragover", this.drag_handlers[5]);
+    element.addEventListener("drop", this.drag_handlers[6]);
+    // TODO: Add drop listener to drop targets (piles?)
+
+    // Create a new card object
+    let result = {
         "id": next_card_id(),
         "type": card_data.id,
         "face_up": is_face_up,
         "properties": copy_nonrecursive_obj(card_data.properties),
         "element": element
     }
+
+    // Add this card to the array of existing cards
+    this.existing_cards.push(result);
+
+    // Return the new card
+    return result;
 }
 
 /**
- * Removes the given card from the pile that it is in. Does nothing if
- * the card is not in any pile.
+ * Internal function for removing a card from a pile without affecting
+ * its stacking situation.
  *
  * @param card The card to remove (from the pile it is currently in).
  */
-Game.prototype.remove_card_from_pile = function (card) {
+Game.prototype._remove_card_from_pile = function (card) {
     let prev_pile = card.pile;
     if (prev_pile) {
         remove_item_from_array(card, this.piles[prev_pile].items);
@@ -567,26 +615,52 @@ Game.prototype.remove_card_from_pile = function (card) {
 }
 
 /**
- * Stacks the first card onto the second card, on top of any cards
- * already stacked on that card. If the first card is already stacked on
- * another card, it is removed from that stack. No matter where the first
- * card was beforehand, afterwards it will be in the same pile as the
- * second card directly above it (and any other stacked cards). If the
- * card being stacked onto is not in a pile, the card being stacked will
- * be removed from its pile.
+ * Works like _remove_card_from_pile, but also removes any cards stacked
+ * on that card, recursively.
  *
- * @param card_to_stack The card being moved.
+ * @param card The base of the stack to remove (from the pile it is
+ *     currently in).
+ */
+Game.prototype._remove_stack_from_pile = function (card) {
+    this._remove_card_from_pile(card);
+    if (card.stack) {
+        for (let stacked of card.stack) {
+            this._remove_stack_from_pile(stacked);
+        }
+    }
+}
+
+/**
+ * Removes the given card from the pile that it is in. Any cards stacked
+ * on the given card fall off, and it is unstacked from any card that it
+ * was stacked on (even if it wasn't in a pile to begin with).
+ *
+ * @param card The card to remove (from the pile it is currently in).
+ */
+Game.prototype.remove_card_from_pile = function (card) {
+    this.unstack_all_from(card);
+    this.unstack_card(card);
+    this._remove_card_from_pile(card);
+}
+
+/**
+ * Removes the card and any cards stacked on it (recursively) from the
+ * pile that they're in. The cards stacked onto the target card remain
+ * stacked on it, but it is removed from the stack of any card that it
+ * was stacked on (even if they're already not in any pile).
+ */
+Game.prototype.remove_stack_from_pile = function (card) {
+    this._unstack_card(card);
+    this._remove_stack_from_pile(card);
+}
+
+/**
+ * Internal function to stack cards without moving them.
+ *
+ * @param card_to_stack The card being added to a stack.
  * @param stack_onto The card being stacked onto.
  */
-Game.prototype.stack_card_on_card = function (card_to_stack, stack_onto) {
-    this.remove_card_from_pile(card_to_stack);
-    this.unstack_card(card_to_stack);
-    if (stack_onto.pile) {
-        this.insert_card_into_pile_after(
-            card_to_stack,
-            stack_onto
-        );
-    }
+Game.prototype._stack_cards = function (card_to_stack, stack_onto) {
     card_to_stack.stacked_on = stack_onto;
     if (stack_onto.stack) {
         stack_onto.stack.push(card_to_stack);
@@ -596,17 +670,54 @@ Game.prototype.stack_card_on_card = function (card_to_stack, stack_onto) {
 }
 
 /**
- * Inserts the given card into the same pile as the target card, directly
- * after it and any cards that are stacked on it. Any cards stacked on
- * the target card fall off (but see insert_stack_into_pile_after).
+ * Stacks the first card onto the second card, on top of any cards
+ * already stacked on that card. If the first card is already stacked on
+ * another card, it is removed from that stack. No matter where the first
+ * card was beforehand, afterwards it will be in the same pile as the
+ * second card directly above it (and any other stacked cards). Any cards
+ * stacked on the card being stacked will move with it.
+ *
+ * If the card being stacked onto is not in a pile, the card being
+ * stacked will be removed from its pile.
+ *
+ * @param card_to_stack The card being moved.
+ * @param stack_onto The card being stacked onto.
+ */
+Game.prototype.stack_card_on_card = function (card_to_stack, stack_onto) {
+    this._unstack_card(card_to_stack);
+    if (stack_onto.pile) {
+        this.insert_stack_into_pile_after(
+            card_to_stack,
+            stack_onto
+        );
+    } else {
+        this._remove_stack_from_pile(card_to_stack);
+    }
+    this._stack_cards(card_to_stack, stack_onto);
+}
+
+/**
+ * Inserts the given card and any cards stacked on top of it into the
+ * same pile as the target card, directly after it and any cards that are
+ * stacked on it. Cards stacked on the target card come with it,
+ * including cards recursively stacked on those cards. If the card being
+ * moved was stacked on a card, that relationship is severed unless the
+ * card that it was stacked on ends up in the same pile.
  *
  * @param card The card being inserted.
  * @param insert_after The card after which to insert. The pile that this
  *     card is in determines the pile being inserted into.
  */
-Game.prototype.insert_card_into_pile_after = function (card, insert_after) {
-    this.remove_card_from_pile(card);
-    this.unstack_card(card);
+Game.prototype.insert_stack_into_pile_after = function (card, insert_after) {
+    // Remove card + its stack from current pile
+    this._remove_stack_from_pile(card);
+    // Unstack card if it's going to end up in a different pile than the
+    // card it is currently stacked on.
+    if (card.stacked_on && card.stacked_on.pile != insert_after.pile) {
+        this._unstack_card(card);
+    }
+
+    // Figure out where to insert in target pile
     let base_idx = this.position_in_pile(insert_after);
     let insert_at = base_idx + 1;
     if (insert_after.stack) {
@@ -614,22 +725,110 @@ Game.prototype.insert_card_into_pile_after = function (card, insert_after) {
     }
     let pile_obj = this.piles[insert_after.pile];
 
-    // Put it into the pile's array
+    // Insert into the pile's array
     let pile_items = pile_obj.items;
     pile_items.splice(insert_at, 0, [card]);
 
-    // Put it into the pile's DOM
-    pile_obj.element.insertBefore(
+    // Put this card into pile's DOM
+    pile_obj.cards_element.insertBefore(
         card.element,
         insert_after.element.nextSibling
     );
+
+    // Recursively handle any cards stacked on this one, re-stacking them
+    // after the card we just moved. This operation won't unstack them
+    // because they are being moved into the same pile as the card that
+    // they're stacked on.
+    if (card.stack) {
+        for (let stacked of card.stack) {
+            this.insert_stack_into_pile_after(stacked, card);
+        }
+    }
+}
+
+/**
+ * Inserts the given card into the same pile as the target card, directly
+ * after it and any cards that are stacked on it. Any cards stacked on
+ * the target card fall off, and if it was stacked on another card that
+ * relationship is severed (but see insert_stack_into_pile_after).
+ *
+ * @param card The card being inserted.
+ * @param insert_after The card after which to insert. The pile that this
+ *     card is in determines the pile being inserted into.
+ */
+Game.prototype.insert_card_into_pile_after = function (card, insert_after) {
+    this._unstack_card(card);
+    this.unstack_all_from(card);
+    this.insert_stack_into_pile_after(card, insert_after);
+}
+
+/**
+ * Puts the given card on top of the pile with the given ID. Removes it
+ * from any previous pile it was in, any cards that are stacked on it
+ * fall off, and it is removed from any stack that it was a part of.
+ *
+ * @param card The card being moved.
+ * @param pile_id The pile ID of the pile to put that card on.
+ */
+Game.prototype.put_card_on_pile = function (card, pile_id) {
+    this._unstack_card(card);
+    this.unstack_all_from(card);
+    this.put_stack_on_pile(card, pile_id);
+}
+
+/**
+ * Puts a card on top of the pile with the given ID, and then puts any
+ * cards that were stacked on top of the given card into the same pile
+ * above the target card in the order that they are stacked. The stacked
+ * cards remain stacked on the target card, but if that card was stacked
+ * on another card, their stack relationship is severed if they wind up
+ * in different piles. Recursively handles any cards that might have been
+ * stacked on cards which are stacked on the target card.
+ *
+ * @param card The base of the stack being moved.
+ * @param pile_id The pile to move the stack onto.
+ */
+Game.prototype.put_stack_on_pile = function (card, pile_id) {
+    this._remove_stack_from_pile(card);
+    card.pile = pile_id;
+    this.piles[pile_id].items.push(card);
+    this.piles[pile_id].cards_element.appendChild(card.element);
+    if (card.stack) {
+        for (let stacked of card.stack) {
+            this.put_stack_on_pile(stacked, pile_id);
+        }
+    }
+    if (card.stacked_on && card.stacked_on.pile != card.pile) {
+        this._unstack_card(card);
+    }
+}
+
+/**
+ * Internal function that handles unstacking a card without moving it.
+ * Does nothing if the card isn't stacked. Does not affect any cards
+ * stacked on the target.
+ *
+ * @param card The card being removed from a stack.
+ */
+Game.prototype._unstack_card = function (card) {
+    let stacked_on = card.stacked_on;
+    if (!stacked_on) {
+        return;
+    }
+    delete card.stacked_on;
+    remove_item_from_array(card, stacked_on.stack);
+    if (stacked_on.stack.length == 0) {
+        // last in stack, so let's get rid of the stack
+        delete stacked_on.stack;
+    }
 }
 
 /**
  * Removes the target card from the stack it is a part of, placing it
  * after any other cards in that stack within the pile that that stack
  * was part of. Does nothing if the target card is not stacked on another
- * card.
+ * card. If there are cards stacked on top of the target card, those are
+ * moved along with it.
  *
  * TODO: Stacking effects on DOM?
  *
@@ -638,21 +837,11 @@ Game.prototype.insert_card_into_pile_after = function (card, insert_after) {
 Game.prototype.unstack_card = function (card) {
     let pile = card.pile;
     let stacked_on = card.stacked_on;
-    if (!stacked_on) {
-        return;
-    }
-    delete card.stacked_on;
-    remove_item_from_array(card, stacked_on.stack);
-    if (stacked_on.stack.length == 0) {
-        // last in stack, so let't get rid of the stack
-        delete stacked_on.stack;
-    } else {
-        // other still in stack, so let's move ourselves after them
-        if (pile) {
-            // re-insert it to 
-            this.remove_card_from_pile(card);
-            this.insert_card_into_pile_after(card, stacked_on);
-        }
+    this._unstack_card(card);
+    // If there are others still in stack, move ourselves after them
+    if (pile && stacked_on.stack && stacked_on.stack.length != 0) {
+        // re-insert it afterwards
+        this.insert_stack_into_pile_after(card, stacked_on);
     }
 }
 
@@ -662,52 +851,15 @@ Game.prototype.unstack_card = function (card) {
  * target card. If the target card is in turn part of a stack on top of
  * another base card, that stack is not affected.
  *
+ * DOES NOT recursively unstack any stacks associated with the cards
+ * being unstacked from the target base.
+ *
  * @param stack_base The card from which stacked cards should be unstacked.
  */
 Game.prototype.unstack_all_from = function (stack_base) {
-    // Reverse order is important here because unstack can reorder things
     if (stack_base.stack) {
-        let stacked = stack_base.stack.slice().reverse();
-        if (stacked) {
-            for (let in_stack of stacked) {
-                this.unstack_card(in_stack);
-            }
-        }
-    }
-}
-
-/**
- * Puts the given card on top of the pile with the given ID. Removes it
- * from any previous pile it was in, and any cards that are stacked on it
- * fall off.
- *
- * @param card The card being moved.
- * @param pile_id The pile ID of the pile to put that card on.
- */
-Game.prototype.put_card_on_pile = function (card, pile_id) {
-    this.unstack_all_from(card);
-    this.remove_card_from_pile(card);
-    card.pile = pile_id;
-    this.piles[pile_id].items.push(card);
-    this.piles[pile_id].element.appendChild(card.element);
-}
-
-/**
- * Puts a card on top of the pile with the given ID, and then puts any
- * cards that were stacked on top of the given card into the same pile
- * above the target card in the order that they are stacked. The stacked
- * cards remain stacked on the target card. Recursively handles any cards
- * that might have been stacked on cards which are stacked on the target
- * card.
- *
- * @param card The base of the stack being moved.
- * @param pile_id The pile to move the stack onto.
- */
-Game.prototype.put_stack_on_pile = function (card, pile_id) {
-    this.put_card_on_pile(card, pile_id);
-    if (card.stack) {
-        for (let stacked of card.stack) {
-            this.put_stack_on_pile(stacked, pile_id);
+        for (let in_stack of stack_base.stack) {
+            this._unstack_card(in_stack);
         }
     }
 }
@@ -868,7 +1020,7 @@ Game.prototype.new_game = function () {
     for (let pile_id of Object.keys(this.piles)) {
         let pile_obj = this.piles[pile_id];
         pile_obj.items = [];
-        pile_obj.element.innerHTML = "";
+        pile_obj.cards_element.innerHTML = "";
     }
 
     // TODO: Cleanup on UI/DOM side of things?!
@@ -880,15 +1032,102 @@ Game.prototype.new_game = function () {
 }
 
 
-// UI Backend
-//-----------
-
-// TODO
-
 // UI Functions
 //-------------
 
-// TODO
+/**
+ * Returns the closest ancestor of the given node which has the given
+ * CSS class. May return the node itself. Returns null if neither the
+ * node nor any of its ancestors has the given class.
+ */
+function first_ancestor_with_class(node, cls) {
+    if (node.classList.contains(cls)) {
+        return node;
+    } else if(node.parentNode) {
+        return first_ancestor_with_class(node.parentNode, cls);
+    } else {
+        return null;
+    }
+}
+
+/**
+ * Creates drag handler functions for the given game. Returns an array
+ * containing functions for handling the following drag events:
+ *
+ *   start - fires when the user picks up an element
+ *   end - fires when the drag ends without a drop
+ *   enter - fires when the drag first enters the area above a target element
+ *   leave - fires when the drag leaves the area above a target
+ *   during - fires continuously as the element is dragged anywhere
+ *   over - fires continuously as the element is dragged over a target
+ *   drop - fires when the element is dropped on a target
+ */
+function create_drag_handlers(game) {
+    /**
+     * Handler for the drag start event, which
+     */
+    function drag_start(evt) {
+        console.log("DS");
+        let target_card = evt.currentTarget;
+        let is_playable = game.rules.playable(game, target_card);
+        if (is_playable) {
+            // if it's a pre-play function call it:
+            if (typeof is_playable == "function") {
+                is_playable(game, target_card);
+            }
+            // Store reference to the card being dragged:
+            game.grabbed = target_card;
+            // Set drag data
+            // TODO: Set HTML data as well?
+            // TODO: Add user-facing names to card types?
+            let dtext = target_card.type;
+            if (target_card.stack) {
+                for (let stacked of target_card.stack) {
+                    dtext += ', ' + stacked.type;
+                }
+            }
+            evt.dataTransfer.setData('text/plain', dtext);
+        } else {
+            // cancel this drag event
+            evt.preventDefault();
+        }
+    }
+
+    function drag_end(evt) {
+        // TODO
+    }
+
+    function drag_enter(evt) {
+        // TODO
+    }
+
+    function drag_leave(evt) {
+        // TODO
+    }
+
+    function drag_during(evt) {
+        // TODO
+    }
+
+    function drag_over(evt) {
+        // TODO
+    }
+
+    function drag_drop(evt) {
+        // TODO
+    }
+
+    // Return the handlers we created
+    return [
+        drag_start,
+        drag_end,
+        drag_enter,
+        drag_leave,
+        drag_during,
+        drag_over,
+        drag_drop
+    ];
+}
 
 //--------------------//
 // Predefined Actions //
@@ -896,10 +1135,13 @@ Game.prototype.new_game = function () {
 
 export var actions = {
     "draw_into": function (dest_pile_id, num_cards_or_1) {
+        // TODO
     },
     "flip_into": function (dest_pile_id, num_cards_or_1) {
+        // TODO
     },
     "shuffle_into": function (dest_pile_id, num_cards_or_all) {
+        // TODO
     },
 }
 
@@ -909,8 +1151,10 @@ export var actions = {
 
 export var conditions = {
     "when_empty": function(pile_id, action) {
+        // TODO
     },
     "general": function(test, action) {
+        // TODO
     },
 }
 

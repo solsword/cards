@@ -1,28 +1,29 @@
 .play_area {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(10vw, 1fr));
-    grid-gap: 0.5vw;
+    grid-template-columns: repeat(auto-fit, minmax(64pt, 1fr));
+    grid-gap: 2pt;
 }
 
 .card {
-    border: 0.25vw solid black;
-    border-radius: 1vw;
+    border: 1.5pt solid black;
+    border-radius: 4pt;
     padding: 0pt;
     position: relative;
-    /* TODO */
     width: 8vw;
     height: 12vw;
-    font-size: 12vw; /* 1 letter = height of whole card so we can use % sizes */
+    min-width: 40pt;
+    min-height: 60pt;
+    font-size: 60pt; /* 1 letter = height of whole card so we can use % sizes */
     overflow: hidden;
     box-sizing: content-box;
-    margin: 0.25vw;
+    margin: 2pt;
 }
 
 .card .back, .card .front {
     box-sizing: border-box;
     width: 100%;
     height: 100%;
-    border-radius: 0.5vw;
+    border-radius: 2pt;
     position: absolute;
     top: 0pt;
     left: 0pt;
@@ -57,30 +58,34 @@
 }
 
 .pile {
-    border: 0.125vw solid black;
-    border-radius: 1vw;
-    padding: 0.6vw;
-    margin: 0.5vw;
+    position: relative;
+    border: 1pt solid black;
+    border-radius: 6pt;
+    padding: 4pt;
+    margin: 2pt;
+    display: grid;
+    justify-items: center;
+    align-items: start;
 }
 
 /* In deck display, all cards are stacked directly on top of each other. */
-.pile.deck {
+.pile.deck .pilecards {
     display: grid;
     grid-template-columns: 1 fr;
 }
 
-.pile.deck .card { grid-row: 1 / 1; grid-column: 1 / 1; }
+.pile.deck .pilecards .card { grid-row: 1 / 1; grid-column: 1 / 1; }
 
 /* In stacked display, cards mostly overlap but each card is slightly
  * below the next so that the top bit is revealed.
  */
-.pile.stacked {
+.pile.stacked .pilecards {
     display: grid;
     grid-template-columns: 1fr;
-    grid-auto-rows: 2vw;
+    grid-auto-rows: 14.5pt;
 }
 
-.pile.stacked .card:nth-last-child(1) {
+.pile.stacked .pilecards .card:nth-last-child(1) {
     /* We set the last card in a stack to span many rows so that it
      * doesn't overflow past the and of the pile like all of the other
      * cards overflow their rows.
@@ -91,14 +96,14 @@
 /* In show_top display, most of the cards are stacked as in the deck
  * mode, but a few at the top are displayed like in stacked.
  */
-.pile.show_top {
+.pile.show_top .pilecards {
     display: grid;
     grid-template-columns: 1fr;
-    grid-auto-rows: 2vw;
+    grid-auto-rows: 14.5pt;
 }
 
 /* By default all cards are stacked into row 1 */
-.pile.show_top .card { grid-row: 1 / 1; }
+.pile.show_top .pilecards .card { grid-row: 1 / 1; }
 
 /* In show-2, the last card is bumped down to row 2 */
 .pile.show_top.show_2 .card:nth-last-child(1) { grid-row: 2 / span 6; }
@@ -117,3 +122,24 @@
 .pile.show_top.show_5 .card:nth-last-child(1) { grid-row: 5 / span 6; }
 
 /* TODO: More generic handling for show_N */
+
+/* Pile controls */
+
+.pile .controls {
+    list-style-type: none;
+    position: absolute;
+    left: 3%;
+    bottom: 3%;
+}
+
+.pile .controls summary {
+    list-style-type: none;
+    display: inline;
+}
+
+/* Links */
+
+a:link, a:visited {
+    text-decoration: none;
+    color: black;
+}

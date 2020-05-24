@@ -1,3 +1,14 @@
+/* Fixed-size cards */
+.card {
+    width: 40pt;
+    height: 60pt;
+}
+
+/* let play area shrink to left */
+.play_area {
+    grid-template-columns: repeat(auto-fill, 64pt);
+}
+
 .card_face {
     position: absolute;
     top: 0pt;
@@ -22,7 +33,7 @@
     position: absolute;
     width: 24%; /* Overflow is allowed so this doesn't really matter */
     text-align: left;
-    font-size: 12%;
+    font-size: 14%;
     line-height: 95%;
 }
 /* TOOD: Prioritize corners when card sizes get too small! */
@@ -47,13 +58,17 @@
 }
 
 .face_symbols {
-    padding: 20% 20% 20% 20%;
+    padding: 12.5% 20% 12.5% 20%;
     box-sizing: border-box;
     width: 100%;
     height: 100%;
     display: grid;
-    font-size: 20%;
+    font-size: 21%;
     justify-items: center;
+    align-items: center;
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
+    font-family: monospace;
 }
 
 .face_symbols .face_symbol:nth-child(1) {
@@ -97,8 +112,11 @@
 }
 
 .face_symbols.special {
+    grid-template-rows: 1fr;
+    grid-template-columns: 1fr;
     grid-template-areas: "a";
-    font-size: 40%;
+    font-size: 50%;
+    font-family: serif;
 }
 
 .face_symbols.special .face_symbol {
@@ -163,7 +181,9 @@
 }
 
 .face_symbols.count_10 {
-    font-size: 16%; /* symbols have to shrink a bit */
+    font-size: 19%; /* symbols have to shrink a bit */
+    line-height: 0%;
+    grid-template-rows: 1fr 1fr 1fr 1fr;
     grid-template-areas:
       " a . b"
       " c d e"

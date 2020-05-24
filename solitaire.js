@@ -77,7 +77,6 @@ function card_heads_valid_stack(game, card) {
  * @param game The game in progress.
  * @param card The card to check.
  *
- * TODO: pre-pickup functions...
  */
 function card_is_playable(game, card) {
     if (!card.pile || !card.face_up) {
@@ -88,7 +87,22 @@ function card_is_playable(game, card) {
     let pile = card.pile;
     if (game.pile_is_in_group(pile, "numbered")) {
         // Any valid stack from a numbered pile may be played
-        return card_heads_valid_stack(game, card);
+        if (card_heads_valid_stack(game, card)) {
+            // This function takes all cards above the target in its pile
+            // and stacks them onto it, in preparation for the stack
+            // being moved along with the target card.
+            return function (game, card) {
+                let target_index = game.position_in_pile(card);
+                for (
+                    let idx = target_index + 1;
+                    idx < game.pile_size(card.pile);
+                    idx += 1
+                ) {
+                    let above = game.get_card_in_pile(card.pile, idx);
+                    game.stack_card_on_card(above, card);
+                }
+            };
+        }
     } else if (pile == "drawn" || game.pile_is_in_group(pile, "top")) {
         // The top card from the drawn pile or any top pile may be
         // played.
