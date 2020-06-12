@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>cards.js Unit Tests</title>
+
+<!-- Tests setup script -->
+<script defer type="module">
+import * as cards from "./modules/cards.js";
+cards.test();
+</script>
+
+<!-- Cards stylesheet -->
+<link rel="stylesheet" href="cards.css">
+<!-- Tests styling -->
+<style>
+div.result {
+    border: 2pt solid #888;
+    margin: 2pt;
+    border-radius: 4pt;
+    padding: 4pt;
+}
+
+.result.pass {
+    border-color: blue;
+}
+
+.result.fail {
+    border-color: red;
+    border-radius: 0pt;
+}
+
+.result.crash {
+    border-color: orange;
+    border-radius: 0pt;
+}
+</style>
+
+    </head>
+    <body>
+        <h1><code>cards.js</code> Unit Tests</h1>
+        <div id="play_area">
+        </div>
+        <section id="counts">
+            Passed: <span id="passed_count">0</span>,
+            Failed: <span id="failed_count">0</span>,
+            Crashed: <span id="crashed_count">0</span>
+        </section>
+    </body>
+</html>

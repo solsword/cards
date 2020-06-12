@@ -58,8 +58,8 @@ function card_heads_valid_stack(game, card) {
     if (pos == size) {
         return true;
     } else {
-        last_color = playing_cards.card_color(card);
-        for (let opos = pos + 1; opos <= size; opos += 1) {
+        let last_color = playing_cards.card_color(card);
+        for (let opos = pos + 1; opos < size; opos += 1) {
             let here = game.get_card_in_pile(card.pile, opos);
             let here_color = playing_cards.card_color(here);
             if (here_color == last_color) {
@@ -101,6 +101,10 @@ function card_is_playable(game, card) {
                     let above = game.get_card_in_pile(card.pile, idx);
                     game.stack_card_on_card(above, card);
                 }
+                // We return a cleanup function to unstack things post-drag.
+                return function (game, card) {
+                    game.unstack_all_from(card);
+                }
             };
         }
     } else if (pile == "drawn" || game.pile_is_in_group(pile, "top")) {
@@ -119,7 +123,7 @@ function card_is_playable(game, card) {
  *
  * @param game The game state.
  * @param card_being_played The card that the player is dragging.
- * @param target_pile The pile over which the card is being dragged.
+ * @param target_pile The pile ID over which the card is being dragged.
  * @param target_card The card of which the player is dragging the card
  *     being played. May be undefined if the player is hovering over a
  *     pile but not a card.
@@ -133,12 +137,23 @@ function play_target(game, card_being_played, target_pile, target_card) {
         // playing onto a numbered pile
         let onto = game.top_card_of_pile(target_pile);
         let my_color = playing_cards.card_color(card_being_played);
-        let target_color = playing_cards.card_color(onto);
         let my_rank = playing_cards.card_rank(card_being_played);
-        let target_rank = plaing_cards.card_rank(onto);
+        let target_color = undefined;
+        let target_rank = undefined;
+        if (onto != undefined) {
+            target_color = playing_cards.card_color(onto);
+            target_rank = playing_cards.card_rank(onto);
+        }
 
-        // colors must alternate and ranks must decrease
-        if (
+        if (target_color == undefined) {
+            // only kings may be played on empty spots
+            if (my_rank == 13) {
+                return target_pile;
+            } else {
+                return null;
+            }
+        // if non-empty, colors must alternate and ranks must decrease
+        } else if (
             my_color == target_color
          || target_rank != my_rank + 1
          ) {
@@ -166,9 +181,9 @@ function play_target(game, card_being_played, target_pile, target_card) {
 
         // card info for this card and target card
         let my_suit = playing_cards.card_suit(card_being_played);
-        let target_suit = plaing_cards.card_suit(onto);
+        let target_suit = playing_cards.card_suit(onto);
         let my_rank = playing_cards.card_rank(card_being_played);
-        let target_rank = plaing_cards.card_rank(onto);
+        let target_rank = playing_cards.card_rank(onto);
 
         // suit must match and rank must increase
         if (
@@ -212,9 +227,12 @@ function play_onto_pile(game, card, pile) {
         throw Error("Invalid pile target '" + pile + "'.");
     }
 
-    // Flip top card of previous pile if it was a numbered pile
+    // Flip top card of previous pile face-up if it was a numbered pile
     if (game.pile_is_in_group(prev_pile, "numbered")) {
-        game.flip_card(game.top_card_of_pile(prev_pile));
+        let old_top = game.top_card_of_pile(prev_pile);
+        if (old_top != undefined) {
+            game.flip_card(old_top, true);
+        }
     }
 }
 
@@ -233,16 +251,15 @@ export var RULES = {
         "draw": {
             "display": cards.styles.deck,
             "actions": [
-                cards.actions.draw_into("drawn", 3)
+                cards.actions.flip_into("drawn", 3)
             ]
         },
         "drawn": {
             "display": cards.styles.show_top(3),
             "actions": [
-                cards.conditions.when_empty(
-                    "draw",
-                    cards.actions.flip_into("draw")
-                )
+                cards.actions.flip_into("draw", "all")
+                    .with_condition(cards.conditions.when_empty("draw"))
+                    .with_icon("⭮")
             ]
         },
         ".numbered": {

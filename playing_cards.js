@@ -170,7 +170,7 @@ LIBRARY.create_group("black", props => SUIT_COLORS[props.suit] == "black");
  *
  * @param card The card to inspect.
  */
-function card_rank(card) {
+export function card_rank(card) {
     return card.properties.rank;
 }
 
@@ -180,7 +180,7 @@ function card_rank(card) {
  *
  * @param card The card to inspect.
  */
-function card_suit(card) {
+export function card_suit(card) {
     return card.properties.suit;
 }
 
@@ -190,6 +190,6 @@ function card_suit(card) {
  *
  * @param card The card to inspect.
  */
-function card_color(card) {
+export function card_color(card) {
     return SUIT_COLORS[card.properties.suit];
 }

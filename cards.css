@@ -19,6 +19,14 @@
     margin: 2pt;
 }
 
+.card.considering {
+    box-shadow: 0px 0px 5px blue;
+}
+
+.card.potential_target {
+    box-shadow: 0px 0px 5px red;
+}
+
 .card .back, .card .front {
     box-sizing: border-box;
     width: 100%;
@@ -68,6 +76,10 @@
     align-items: start;
 }
 
+.pile.potential_target {
+    box-shadow: 0px 0px 5px red;
+}
+
 /* In deck display, all cards are stacked directly on top of each other. */
 .pile.deck .pilecards {
     display: grid;
@@ -103,7 +115,10 @@
 }
 
 /* By default all cards are stacked into row 1 */
-.pile.show_top .pilecards .card { grid-row: 1 / 1; }
+.pile.show_top .pilecards .card {
+    grid-column: 1 / 1;
+    grid-row: 1 / 1;
+}
 
 /* In show-2, the last card is bumped down to row 2 */
 .pile.show_top.show_2 .card:nth-last-child(1) { grid-row: 2 / span 6; }
@@ -126,15 +141,25 @@
 /* Pile controls */
 
 .pile .controls {
-    list-style-type: none;
+    /*list-style-type: none;*/
     position: absolute;
     left: 3%;
     bottom: 3%;
 }
 
+/*
 .pile .controls summary {
     list-style-type: none;
     display: inline;
+}
+*/
+
+.pile a {
+    margin: 2pt;
+    border: 1pt solid black;
+    border-radius: 2pt;
+    padding: 1pt;
+    font-family: monospace;
 }
 
 /* Links */
@@ -142,4 +167,28 @@
 a:link, a:visited {
     text-decoration: none;
     color: black;
+}
+
+/* pile inspector view */
+#inspector {
+    position: absolute;
+    top: 8pt;
+    left: 8pt;
+    right: 8pt;
+    bottom: 8pt;
+    background-color: white;
+    border: 1pt solid black;
+    border-radius: 6pt;
+    padding: 4pt;
+    margin: 2pt;
+    text-align: center;
+}
+
+.inspected_cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(64pt, 1fr));
+    justify-items: center;
+    align-items: middle;
+    grid-gap: 2pt;
+    margin: auto;
 }
